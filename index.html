@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Editor Ultimate</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        theme: {
+                            base: 'var(--bg-base)',
+                            editor: 'var(--bg-editor)',
+                            preview: 'var(--bg-preview)',
+                            toolbar: 'var(--bg-toolbar)',
+                            border: 'var(--border-color)',
+                            text: 'var(--text-main)',
+                            muted: 'var(--text-muted)',
+                            accent: 'var(--accent-color)',
+                            toolbarText: 'var(--text-toolbar)',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Marked.js -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- DOMPurify -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    
+    <!-- Highlight.js -->
+    <link id="highlight-css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <!-- Mermaid.js -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- GitHub Markdown CSS (ID追加: 動的切替用) -->
+    <link id="github-markdown-css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown-light.min.css">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* =========================================
+           テーマ定義 (CSS Variables)
+           ========================================= */
+        :root {
+            /* Light (Default) */
+            --bg-base: #f3f4f6;
+            --bg-editor: #f9fafb;
+            --bg-preview: #ffffff;
+            --bg-toolbar: #1f2937;
+            --bg-code: #f6f8fa;
+            --border-color: #e5e7eb;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --text-toolbar: #f3f4f6;
+            --accent-color: #3b82f6;
+            --scrollbar-thumb: #c1c1c1;
+            --scrollbar-hover: #a8a8a8;
+        }
+
+        /* Dark */
+        [data-theme="dark"] {
+            --bg-base: #0d1117;
+            --bg-editor: #0d1117;
+            --bg-preview: #0d1117;
+            --bg-toolbar: #161b22;
+            --bg-code: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --text-toolbar: #c9d1d9;
+            --accent-color: #58a6ff;
+            --scrollbar-thumb: #484f58;
+            --scrollbar-hover: #586069;
+        }
+
+        /* Solarized Light */
+        [data-theme="solarized-light"] {
+            --bg-base: #fdf6e3;
+            --bg-editor: #fdf6e3;
+            --bg-preview: #fdf6e3;
+            --bg-toolbar: #eee8d5;
+            --bg-code: #fdf6e3;
+            --border-color: #d3d7cf;
+            --text-main: #586e75;
+            --text-muted: #93a1a1;
+            --text-toolbar: #586e75;
+            --accent-color: #2aa198;
+            --scrollbar-thumb: #93a1a1;
+            --scrollbar-hover: #839496;
+        }
+
+        /* Dracula */
+        [data-theme="dracula"] {
+            --bg-base: #282a36;
+            --bg-editor: #282a36;
+            --bg-preview: #282a36;
+            --bg-toolbar: #44475a;
+            --bg-code: #282a36;
+            --border-color: #6272a4;
+            --text-main: #f8f8f2;
+            --text-muted: #6272a4;
+            --text-toolbar: #f8f8f2;
+            --accent-color: #ff79c6;
+            --scrollbar-thumb: #6272a4;
+            --scrollbar-hover: #bd93f9;
+        }
+
+        /* Cobalt (Blue) */
+        [data-theme="cobalt"] {
+            --bg-base: #002240;
+            --bg-editor: #002240;
+            --bg-preview: #002240;
+            --bg-toolbar: #001f3f;
+            --bg-code: #002240;
+            --border-color: #194060;
+            --text-main: #ffffff;
+            --text-muted: #80a0c0;
+            --text-toolbar: #ffffff;
+            --accent-color: #ffc107;
+            --scrollbar-thumb: #194060;
+            --scrollbar-hover: #ffc107;
+        }
+
+        /* =========================================
+           基本スタイル
+           ========================================= */
+        body {
+            color: var(--text-main);
+            background-color: var(--bg-base);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .editor-area {
+            font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+            line-height: 1.6;
+            tab-size: 4;
+            color: var(--text-main);
+            caret-color: var(--text-main);
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+
+        .toolbar-btn:hover { background-color: rgba(128,128,128,0.2); }
+        .view-btn.active { background-color: var(--bg-base); color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+        @media print {
+            header, .editor-pane, .status-bar, #toast { display: none !important; }
+            .preview-pane { width: 100% !important; border: none !important; height: auto !important; overflow: visible !important; }
+            body, main { height: auto !important; overflow: visible !important; background: white !important; }
+            .markdown-body { padding: 0 !important; max-width: 100% !important; color: black !important; background: white !important; }
+        }
+
+        /* =========================================
+           Markdown Body & Code Style
+           ========================================= */
+        .markdown-body {
+            background-color: var(--bg-preview) !important;
+            color: var(--text-main) !important;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* * コードブロックのスタイル調整 
+         * テーマ変数を優先しつつ、Highlight.jsのカラーリングを阻害しない設定
+         */
+        .markdown-body pre {
+            background-color: var(--bg-code) !important;
+            border: 1px solid var(--border-color);
+            color: inherit; /* 文字色は子要素(code.hljs)または親の設定に従う */
+        }
+        
+        /* Highlight.jsの背景を透明にして、preタグの背景色を活かす */
+        .markdown-body pre code.hljs {
+            background-color: transparent !important;
+            padding: 0;
+            color: inherit; /* これを設定しないとGithub CSSの黒色が優先される場合がある */
+        }
+
+        /* テーブルなどの微調整 */
+        [data-theme="dark"] .markdown-body table tr,
+        [data-theme="dracula"] .markdown-body table tr,
+        [data-theme="cobalt"] .markdown-body table tr { background-color: var(--bg-preview); border-top-color: var(--border-color); }
+        
+        [data-theme="dark"] .markdown-body table tr:nth-child(2n),
+        [data-theme="dracula"] .markdown-body table tr:nth-child(2n),
+        [data-theme="cobalt"] .markdown-body table tr:nth-child(2n) { background-color: rgba(128,128,128,0.1); }
+        
+        [data-theme="dark"] .markdown-body table th, 
+        [data-theme="dark"] .markdown-body table td,
+        [data-theme="dracula"] .markdown-body table th,
+        [data-theme="dracula"] .markdown-body table td,
+        [data-theme="cobalt"] .markdown-body table th,
+        [data-theme="cobalt"] .markdown-body table td { border-color: var(--border-color); }
+
+        [data-theme="solarized-light"] .markdown-body blockquote,
+        [data-theme="solarized-light"] .markdown-body table tr { background-color: transparent; }
+
+        .mermaid { display: flex; justify-content: center; margin: 20px 0; background: transparent; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- ヘッダー -->
+    <header class="bg-theme-toolbar border-b border-theme-border p-2 flex justify-between items-center shadow-sm z-20 shrink-0 transition-colors duration-300">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 text-theme-toolbarText px-2">
+                <i class="fa-brands fa-markdown text-2xl" style="color: var(--accent-color)"></i>
+                <h1 class="font-bold tracking-tight hidden sm:block">MD Ultimate</h1>
+            </div>
+            
+            <div class="h-6 w-px bg-theme-border mx-1 hidden md:block"></div>
+            <div class="flex gap-1 overflow-x-auto no-scrollbar items-center text-theme-toolbarText">
+                <button onclick="insertFormat('bold')" class="toolbar-btn p-1.5 rounded" title="太字"><i class="fa-solid fa-bold"></i></button>
+                <button onclick="insertFormat('italic')" class="toolbar-btn p-1.5 rounded" title="斜体"><i class="fa-solid fa-italic"></i></button>
+                <button onclick="insertFormat('strike')" class="toolbar-btn p-1.5 rounded" title="打ち消し線"><i class="fa-solid fa-strikethrough"></i></button>
+                <div class="h-4 w-px bg-theme-border mx-1"></div>
+                <button onclick="insertFormat('h1')" class="toolbar-btn p-1.5 rounded font-bold text-xs" title="見出し1">H1</button>
+                <button onclick="insertFormat('h2')" class="toolbar-btn p-1.5 rounded font-bold text-xs" title="見出し2">H2</button>
+                <button onclick="insertFormat('h3')" class="toolbar-btn p-1.5 rounded font-bold text-xs" title="見出し3">H3</button>
+                <div class="h-4 w-px bg-theme-border mx-1"></div>
+                <button onclick="insertFormat('list')" class="toolbar-btn p-1.5 rounded" title="リスト"><i class="fa-solid fa-list-ul"></i></button>
+                <button onclick="insertFormat('check')" class="toolbar-btn p-1.5 rounded" title="チェックリスト"><i class="fa-regular fa-square-check"></i></button>
+                <button onclick="insertFormat('quote')" class="toolbar-btn p-1.5 rounded" title="引用"><i class="fa-solid fa-quote-right"></i></button>
+                <div class="h-4 w-px bg-theme-border mx-1"></div>
+                <button onclick="insertFormat('code')" class="toolbar-btn p-1.5 rounded" title="コード"><i class="fa-solid fa-code"></i></button>
+                <button onclick="insertFormat('link')" class="toolbar-btn p-1.5 rounded" title="リンク"><i class="fa-solid fa-link"></i></button>
+                <button onclick="insertFormat('image')" class="toolbar-btn p-1.5 rounded" title="画像"><i class="fa-regular fa-image"></i></button>
+                <button onclick="insertFormat('table')" class="toolbar-btn p-1.5 rounded" title="テーブル"><i class="fa-solid fa-table"></i></button>
+                <button onclick="insertFormat('math')" class="toolbar-btn p-1.5 rounded" title="数式"><i class="fa-solid fa-square-root-variable"></i></button>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <div class="bg-theme-base border border-theme-border rounded p-0.5 flex text-theme-muted">
+                <button onclick="setViewMode('editor')" class="view-btn p-1.5 rounded text-xs hover:text-theme-text transition" title="エディタのみ"><i class="fa-solid fa-pen-nib"></i></button>
+                <button onclick="setViewMode('split')" class="view-btn p-1.5 rounded text-xs hover:text-theme-text transition" title="分割"><i class="fa-solid fa-columns"></i></button>
+                <button onclick="setViewMode('preview')" class="view-btn p-1.5 rounded text-xs hover:text-theme-text transition" title="プレビューのみ"><i class="fa-solid fa-eye"></i></button>
+            </div>
+
+            <div class="relative">
+                <select id="theme-selector" onchange="changeTheme(this.value)" class="appearance-none bg-theme-base text-theme-text text-xs border border-theme-border rounded pl-2 pr-6 py-1.5 focus:outline-none focus:border-theme-accent cursor-pointer">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="solarized-light">Solarized</option>
+                    <option value="dracula">Dracula</option>
+                    <option value="cobalt">Cobalt</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-theme-text">
+                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                </div>
+            </div>
+            
+            <button onclick="exportPDF()" class="p-2 text-theme-toolbarText hover:bg-white/10 rounded transition" title="PDF保存/印刷">
+                <i class="fa-solid fa-print"></i>
+            </button>
+            
+            <div class="relative group">
+                <button class="p-2 text-theme-toolbarText hover:bg-white/10 rounded transition">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </button>
+                <div class="absolute right-0 top-full mt-1 w-48 bg-theme-editor border border-theme-border rounded shadow-lg hidden group-hover:block z-50">
+                    <button onclick="copyHTML()" class="w-full text-left px-4 py-2 text-sm text-theme-text hover:bg-theme-base"><i class="fa-solid fa-code w-6"></i> HTMLコピー</button>
+                    <button onclick="copyMarkdown()" class="w-full text-left px-4 py-2 text-sm text-theme-text hover:bg-theme-base"><i class="fa-solid fa-file-lines w-6"></i> MDコピー</button>
+                    <div class="border-t border-theme-border my-1"></div>
+                    <button onclick="resetEditor()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-theme-base"><i class="fa-solid fa-trash w-6"></i> 全消去</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden relative">
+        <div id="editor-container" class="editor-pane w-1/2 flex flex-col border-r border-theme-border bg-theme-editor transition-colors duration-300">
+            <textarea id="editor" 
+                class="editor-area w-full h-full p-6 resize-none outline-none bg-transparent"
+                placeholder="# ここにMarkdownを入力..."
+                spellcheck="false"></textarea>
+            
+            <div id="drop-overlay" class="absolute inset-0 bg-blue-500/20 border-4 border-blue-500 border-dashed m-4 rounded-xl flex items-center justify-center pointer-events-none opacity-0 transition-opacity">
+                <div class="text-blue-600 font-bold text-xl bg-white p-4 rounded shadow-lg">
+                    <i class="fa-solid fa-image mr-2"></i> 画像をドロップして挿入
+                </div>
+            </div>
+        </div>
+
+        <div id="preview-container" class="preview-pane w-1/2 flex flex-col bg-theme-preview relative transition-colors duration-300">
+            <div id="preview" class="markdown-body w-full h-full overflow-y-auto p-8 sm:p-12 pb-24"></div>
+        </div>
+    </main>
+
+    <footer class="status-bar bg-theme-toolbar border-t border-theme-border text-xs text-theme-muted px-4 py-1 flex justify-between select-none transition-colors duration-300">
+        <div class="flex gap-4">
+            <span id="line-col-info">Ln 1, Col 1</span>
+            <span id="char-count">0 chars</span>
+            <span id="word-count">0 words</span>
+        </div>
+        <div class="flex gap-4">
+            <span id="save-status" class="text-green-500 hidden"><i class="fa-solid fa-check"></i> Saved</span>
+            <span>Markdown Editor Ultimate</span>
+        </div>
+    </footer>
+
+    <div id="toast" class="fixed bottom-10 right-10 bg-slate-800 text-white px-5 py-3 rounded-lg shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50 flex items-center gap-3">
+        <i class="fa-solid fa-info-circle"></i>
+        <span id="toast-msg">Notification</span>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+        const editorContainer = document.getElementById('editor-container');
+        const previewContainer = document.getElementById('preview-container');
+        const dropOverlay = document.getElementById('drop-overlay');
+        const saveStatus = document.getElementById('save-status');
+        const highlightLink = document.getElementById('highlight-css');
+        const ghCssLink = document.getElementById('github-markdown-css');
+        const themeSelector = document.getElementById('theme-selector');
+
+        const defaultText = `# Welcome to Ultimate Editor! 🚀
+
+テーマ切り替え機能を搭載した高機能エディタです。
+右上のドロップダウンメニューからテーマを変更してみてください。
+
+## ✨ テーマ一覧
+
+1. **Light**: 標準的な明るいテーマ (コード: GitHub Light)
+2. **Dark**: GitHub風のダークテーマ (コード: GitHub Dark)
+3. **Solarized**: 目に優しいクリーム色のテーマ (コード: Solarized Light)
+4. **Dracula**: 人気のコントラスト強めのダークテーマ (コード: Dracula)
+5. **Cobalt**: 鮮やかな青背景のテーマ (コード: Atom One Dark)
+
+## 数式テスト
+$$
+f(x) = \\int_{-\\infty}^\\infty \\hat f(\\xi)\\,e^{2\\pi i \\xi x} \\,d\\xi
+$$
+
+## コードハイライト
+\`\`\`javascript
+function changeTheme(themeName) {
+    document.documentElement.setAttribute('data-theme', themeName);
+    console.log("Theme changed to " + themeName);
+}
+\`\`\`
+`;
+
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+        });
+
+        function init() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            themeSelector.value = savedTheme;
+            changeTheme(savedTheme);
+
+            const saved = localStorage.getItem('md_content');
+            editor.value = saved !== null ? saved : defaultText;
+            
+            setViewMode('split');
+            updatePreview();
+            updateStatus();
+            setupSyncScroll();
+            setupDragAndDrop();
+        }
+
+        function changeTheme(themeName) {
+            // 1. CSS変数切り替え
+            document.documentElement.setAttribute('data-theme', themeName);
+            localStorage.setItem('theme', themeName);
+
+            // 2. Highlight.js CSS切り替え
+            const highlightThemes = {
+                'light': 'github',
+                'dark': 'github-dark',
+                'solarized-light': 'github',
+                'dracula': 'github-dark',
+                'cobalt': 'github-dark'
+            };
+            const hlTheme = highlightThemes[themeName] || 'github';
+            const newHlHref = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${hlTheme}.min.css`;
+            if (highlightLink.href !== newHlHref) {
+                highlightLink.href = newHlHref;
+            }
+
+            // 3. GitHub Markdown CSS切り替え (Light/Dark)
+            // これを行わないと、Darkテーマ時にGitHub CSSのデフォルト黒文字が優先されて見えなくなる
+            const isDark = ['dark', 'dracula', 'cobalt'].includes(themeName);
+            const ghScheme = isDark ? 'dark' : 'light';
+            const newGhHref = `https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown-${ghScheme}.min.css`;
+            
+            if (ghCssLink.href !== newGhHref) {
+                ghCssLink.href = newGhHref;
+            }
+        }
+
+        function updatePreview() {
+            const raw = editor.value;
+            let html = marked.parse(raw);
+            
+            html = DOMPurify.sanitize(html, {
+                ADD_TAGS: ['iframe'], 
+                ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'target']
+            });
+
+            preview.innerHTML = html;
+
+            // Highlight.js適用
+            preview.querySelectorAll('pre code').forEach((block) => {
+                if (!block.classList.contains('language-mermaid')) {
+                    hljs.highlightElement(block);
+                }
+            });
+
+            renderMermaid();
+
+            renderMathInElement(preview, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+
+            preview.querySelectorAll('a').forEach(a => a.target = '_blank');
+            saveToLocal();
+            updateStatus();
+        }
+
+        async function renderMermaid() {
+            const mermaidBlocks = preview.querySelectorAll('pre code.language-mermaid');
+            const nodes = [];
+            mermaidBlocks.forEach(block => {
+                const pre = block.parentElement;
+                const div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = block.textContent;
+                pre.replaceWith(div);
+                nodes.push(div);
+            });
+            if (nodes.length > 0) {
+                try {
+                    await mermaid.run({ nodes });
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        function updateStatus() {
+            const text = editor.value;
+            document.getElementById('char-count').innerText = `${text.length} chars`;
+            document.getElementById('word-count').innerText = `${text.split(/\s+/).filter(w => w.length > 0).length} words`;
+            
+            const pos = editor.selectionStart;
+            const lines = text.substr(0, pos).split("\n");
+            const row = lines.length;
+            const col = lines[lines.length - 1].length + 1;
+            document.getElementById('line-col-info').innerText = `Ln ${row}, Col ${col}`;
+        }
+
+        function insertFormat(type) {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const text = editor.value;
+            const selected = text.substring(start, end);
+            let insertText = "";
+            let cursorOffset = 0;
+
+            switch(type) {
+                case 'bold': insertText = `**${selected || '太字'}**`; cursorOffset = selected ? 0 : -2; break;
+                case 'italic': insertText = `*${selected || '斜体'}*`; cursorOffset = selected ? 0 : -1; break;
+                case 'strike': insertText = `~~${selected || '打ち消し'}~~`; cursorOffset = selected ? 0 : -2; break;
+                case 'h1': insertText = `# ${selected || '見出し1'}`; break;
+                case 'h2': insertText = `## ${selected || '見出し2'}`; break;
+                case 'h3': insertText = `### ${selected || '見出し3'}`; break;
+                case 'list': insertText = `- ${selected || 'リストアイテム'}`; break;
+                case 'check': insertText = `- [ ] ${selected || 'タスク'}`; break;
+                case 'quote': insertText = `> ${selected || '引用'}`; break;
+                case 'code': insertText = `\`\`\`\n${selected || 'code'}\n\`\`\``; cursorOffset = selected ? 0 : -4; break;
+                case 'link': insertText = `[${selected || 'リンクテキスト'}](url)`; cursorOffset = -1; break;
+                case 'image': insertText = `![${selected || '代替テキスト'}](image_url)`; cursorOffset = -1; break;
+                case 'table': insertText = `| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |`; break;
+                case 'math': insertText = `$$ ${selected || 'E=mc^2'} $$`; break;
+            }
+
+            editor.setRangeText(insertText, start, end, 'select');
+            if (cursorOffset !== 0) {
+                 editor.selectionStart = editor.selectionEnd + cursorOffset;
+                 editor.selectionEnd = editor.selectionStart;
+            }
+            editor.focus();
+            updatePreview();
+        }
+
+        function setupDragAndDrop() {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                editor.addEventListener(eventName, preventDefaults, false);
+            });
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            editor.addEventListener('dragenter', () => dropOverlay.style.opacity = '1');
+            editor.addEventListener('dragleave', (e) => {
+                if (!editorContainer.contains(e.relatedTarget)) {
+                    dropOverlay.style.opacity = '0';
+                }
+            });
+            editor.addEventListener('drop', handleDrop);
+            function handleDrop(e) {
+                dropOverlay.style.opacity = '0';
+                const dt = e.dataTransfer;
+                if(dt.files.length > 0) handleFiles(dt.files);
+            }
+            function handleFiles(files) {
+                const file = files[0];
+                if (!file.type.startsWith('image/')) {
+                    showToast("画像ファイルのみ対応しています", true);
+                    return;
+                }
+                if (file.size > 2 * 1024 * 1024) {
+                    if(!confirm("画像サイズが大きいです(2MB以上)。続行しますか？")) return;
+                }
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onloadend = function() {
+                    const base64data = reader.result;
+                    const imgTag = `\n![${file.name}](${base64data})\n`;
+                    const start = editor.selectionStart;
+                    editor.setRangeText(imgTag, start, start, 'end');
+                    updatePreview();
+                    showToast("画像を挿入しました");
+                }
+            }
+        }
+
+        function setViewMode(mode) {
+            const btns = document.querySelectorAll('.view-btn');
+            btns.forEach(b => b.classList.remove('active'));
+            const activeIndex = mode === 'editor' ? 0 : mode === 'split' ? 1 : 2;
+            btns[activeIndex].classList.add('active');
+
+            if (mode === 'editor') {
+                editorContainer.classList.remove('hidden', 'w-1/2');
+                editorContainer.classList.add('w-full');
+                previewContainer.classList.add('hidden');
+            } else if (mode === 'preview') {
+                editorContainer.classList.add('hidden');
+                previewContainer.classList.remove('hidden', 'w-1/2');
+                previewContainer.classList.add('w-full');
+            } else { // split
+                editorContainer.classList.remove('hidden', 'w-full');
+                editorContainer.classList.add('w-1/2');
+                previewContainer.classList.remove('hidden', 'w-full');
+                previewContainer.classList.add('w-1/2');
+            }
+        }
+
+        function exportPDF() { window.print(); }
+
+        function setupSyncScroll() {
+            let isScrolling = false;
+            editor.addEventListener('scroll', () => {
+                if (!isScrolling && !editorContainer.classList.contains('hidden') && !previewContainer.classList.contains('hidden')) {
+                    window.requestAnimationFrame(() => {
+                        const percent = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
+                        preview.scrollTop = percent * (preview.scrollHeight - preview.clientHeight);
+                    });
+                }
+            });
+        }
+        
+        function saveToLocal() {
+            localStorage.setItem('md_content', editor.value);
+            saveStatus.classList.remove('hidden');
+            setTimeout(() => saveStatus.classList.add('hidden'), 2000);
+        }
+
+        editor.addEventListener('input', updatePreview);
+        editor.addEventListener('keyup', updateStatus);
+        editor.addEventListener('click', updateStatus);
+
+        async function copyToClipboard(text, msg) {
+            try { await navigator.clipboard.writeText(text); showToast(msg); }
+            catch(e) { showToast("Error", true); }
+        }
+        function copyHTML() { copyToClipboard(preview.innerHTML, "HTML Copied!"); }
+        function copyMarkdown() { copyToClipboard(editor.value, "Markdown Copied!"); }
+        function resetEditor() { 
+            if(confirm("全て消去してリセットしますか？")) { 
+                editor.value = ""; 
+                updatePreview(); 
+                showToast("Reset Complete"); 
+            } 
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            if(isError) toast.classList.add('bg-red-600');
+            else toast.classList.remove('bg-red-600');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        init();
+    </script>
+</body>
+</html>
